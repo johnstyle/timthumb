@@ -1,0 +1,13 @@
+{
+    "name": "johnstyle/timthumb",
+    "type": "library",
+    "description": "PHP Image resizer",
+    "keywords": ["PHP 5", "PHP5", "Image", "JPG", "PGN", "GIF"],
+    "homepage": "https://github.com/johnstyle/timthumb",
+    "license": "GPL v2",
+    "autoload": {
+        "psr-4": {
+            "\\": "src"
+        }
+    }
+}
