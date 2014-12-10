@@ -353,6 +353,9 @@ class Timthumb
         return false;
     }
 
+    /**
+     * @return bool
+     */
     protected function tryBrowserCache()
     {
         if(BROWSER_CACHE_DISABLE){ $this->debug(3, "Browser caching is disabled"); return false; }
