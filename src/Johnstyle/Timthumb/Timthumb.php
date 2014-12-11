@@ -22,6 +22,42 @@ namespace Johnstyle\Timthumb;
  */
 class Timthumb
 {
+    public static $version = '3.0.0';
+
+    /** @var array $options */
+    protected static $options = array(
+        'src' => null,
+        'quality' => 90,
+        'zoom_crop' => 1,
+        'align' => 'c',
+        'filters' => '',
+        'sharpen' => 0,
+        'canvas_color' => 'ffffff',
+        'canvas_trans' => 1,
+        'width' => 100,
+        'height' => 100,
+        'max_width' => 1500,
+        'max_height' => 1500,
+        'debug_on' => false,
+        'debug_level' => 1,
+        'memory_limit' => '30M',
+        'block_external_leechers' => false,
+        'allow_external' => false,
+        'allow_all_external_sites' => false,
+        'file_cache_enabled' => true,
+        'allowed_sites' => array (
+            'flickr.com',
+            'staticflickr.com',
+            'picasa.com',
+            'img.youtube.com',
+            'upload.wikimedia.org',
+            'photobucket.com',
+            'imgur.com',
+            'imageshack.us',
+            'tinypic.com',
+        )
+    );
+
     protected $src = "";
     protected $is404 = false;
     protected $docRoot = "";
@@ -45,24 +81,11 @@ class Timthumb
     protected static $curlFH = false;
 
     /**
-     *
+     * @param array $options
      */
-    public static function start()
+    public static function start(array $options = null)
     {
-        global $ALLOWED_SITES;
-
-        define ('VERSION', '2.8.14');																		// Version of this script
-
-        if(! defined('DEBUG_ON') )					define ('DEBUG_ON', false);								// Enable debug logging to web server error log (STDERR)
-        if(! defined('DEBUG_LEVEL') )				define ('DEBUG_LEVEL', 1);								// Debug level 1 is less noisy and 3 is the most noisy
-        if(! defined('MEMORY_LIMIT') )				define ('MEMORY_LIMIT', '30M');							// Set PHP memory limit
-        if(! defined('BLOCK_EXTERNAL_LEECHERS') ) 	define ('BLOCK_EXTERNAL_LEECHERS', false);				// If the image or webshot is being loaded on an external site, display a red "No Hotlinking" gif.
-        if(! defined('DISPLAY_ERROR_MESSAGES') )	define ('DISPLAY_ERROR_MESSAGES', true);				// Display error messages. Set to false to turn off errors (good for production websites)
-
         //Image fetching and caching
-        if(! defined('ALLOW_EXTERNAL') )			define ('ALLOW_EXTERNAL', TRUE);						// Allow image fetching from external websites. Will check against ALLOWED_SITES if ALLOW_ALL_EXTERNAL_SITES is false
-        if(! defined('ALLOW_ALL_EXTERNAL_SITES') ) 	define ('ALLOW_ALL_EXTERNAL_SITES', false);				// Less secure.
-        if(! defined('FILE_CACHE_ENABLED') ) 		define ('FILE_CACHE_ENABLED', TRUE);					// Should we store resized/modified images on disk to speed things up?
         if(! defined('FILE_CACHE_TIME_BETWEEN_CLEANS'))	define ('FILE_CACHE_TIME_BETWEEN_CLEANS', 86400);	// How often the cache is cleaned
 
         if(! defined('FILE_CACHE_MAX_FILE_AGE') ) 	define ('FILE_CACHE_MAX_FILE_AGE', 86400);				// How old does a file have to be to be deleted from the cache
@@ -78,18 +101,9 @@ class Timthumb
         if(! defined('BROWSER_CACHE_DISABLE') ) 	define ('BROWSER_CACHE_DISABLE', false);				// Use for testing if you want to disable all browser caching
 
         //Image size and defaults
-        if(! defined('MAX_WIDTH') )					define ('MAX_WIDTH', 1500);								// Maximum image width
-        if(! defined('MAX_HEIGHT') )				define ('MAX_HEIGHT', 1500);							// Maximum image height
         if(! defined('NOT_FOUND_IMAGE') )			define ('NOT_FOUND_IMAGE', '');							// Image to serve if any 404 occurs
         if(! defined('ERROR_IMAGE') )				define ('ERROR_IMAGE', '');								// Image to serve if an error occurs instead of showing error message
         if(! defined('PNG_IS_TRANSPARENT') )		define ('PNG_IS_TRANSPARENT', FALSE);					// Define if a png image should have a transparent background color. Use False value if you want to display a custom coloured canvas_colour
-        if(! defined('DEFAULT_Q') )					define ('DEFAULT_Q', 90);								// Default image quality. Allows overrid in timthumb-config.php
-        if(! defined('DEFAULT_ZC') )				define ('DEFAULT_ZC', 1);								// Default zoom/crop setting. Allows overrid in timthumb-config.php
-        if(! defined('DEFAULT_F') )					define ('DEFAULT_F', '');								// Default image filters. Allows overrid in timthumb-config.php
-        if(! defined('DEFAULT_S') )					define ('DEFAULT_S', 0);								// Default sharpen value. Allows overrid in timthumb-config.php
-        if(! defined('DEFAULT_CC') )				define ('DEFAULT_CC', 'ffffff');						// Default canvas colour. Allows overrid in timthumb-config.php
-        if(! defined('DEFAULT_WIDTH') )				define ('DEFAULT_WIDTH', 100);							// Default thumbnail width. Allows overrid in timthumb-config.php
-        if(! defined('DEFAULT_HEIGHT') )			define ('DEFAULT_HEIGHT', 100);							// Default thumbnail height. Allows overrid in timthumb-config.php
 
         //Image compression is enabled if either of these point to valid paths
 
@@ -100,79 +114,14 @@ class Timthumb
         if(! defined('PNGCRUSH_ENABLED') ) 		define ('PNGCRUSH_ENABLED', false);
         if(! defined('PNGCRUSH_PATH') ) 		define ('PNGCRUSH_PATH', '/usr/bin/pngcrush'); //This will only run if OPTIPNG_PATH is not set or is not valid
 
-        /* -------====Website Screenshots configuration - BETA====-------
-
-            If you just want image thumbnails and don't want website screenshots, you can safely leave this as is.
-
-            If you would like to get website screenshots set up, you will need root access to your own server.
-
-            Enable ALLOW_ALL_EXTERNAL_SITES so you can fetch any external web page. This is more secure now that we're using a non-web folder for cache.
-            Enable BLOCK_EXTERNAL_LEECHERS so that your site doesn't generate thumbnails for the whole Internet.
-
-            Instructions to get website screenshots enabled on Ubuntu Linux:
-
-            1. Install Xvfb with the following command: sudo apt-get install subversion libqt4-webkit libqt4-dev g++ xvfb
-            2. Go to a directory where you can download some code
-            3. Check-out the latest version of CutyCapt with the following command: svn co https://cutycapt.svn.sourceforge.net/svnroot/cutycapt
-            4. Compile CutyCapt by doing: cd cutycapt/CutyCapt
-            5. qmake
-            6. make
-            7. cp CutyCapt /usr/local/bin/
-            8. Test it by running: xvfb-run --server-args="-screen 0, 1024x768x24" CutyCapt --url="http://markmaunder.com/" --out=test.png
-            9. If you get a file called test.png with something in it, it probably worked. Now test the script by accessing it as follows:
-            10. http://yoursite.com/path/to/timthumb.php?src=http://markmaunder.com/&webshot=1
-
-            Notes on performance:
-            The first time a webshot loads, it will take a few seconds.
-            From then on it uses the regular timthumb caching mechanism with the configurable options above
-            and loading will be very fast.
-
-            --ADVANCED USERS ONLY--
-            If you'd like a slight speedup (about 25%) and you know Linux, you can run the following command which will keep Xvfb running in the background.
-            nohup Xvfb :100 -ac -nolisten tcp -screen 0, 1024x768x24 > /dev/null 2>&1 &
-            Then set WEBSHOT_XVFB_RUNNING = true below. This will save your server having to fire off a new Xvfb server and shut it down every time a new shot is generated.
-            You will need to take responsibility for keeping Xvfb running in case it crashes. (It seems pretty stable)
-            You will also need to take responsibility for server security if you're running Xvfb as root.
-        */
-        if(! defined('WEBSHOT_ENABLED') ) 	define ('WEBSHOT_ENABLED', false);			//Beta feature. Adding webshot=1 to your query string will cause the script to return a browser screenshot rather than try to fetch an image.
-        if(! defined('WEBSHOT_CUTYCAPT') ) 	define ('WEBSHOT_CUTYCAPT', '/usr/local/bin/CutyCapt'); //The path to CutyCapt.
-        if(! defined('WEBSHOT_XVFB') ) 		define ('WEBSHOT_XVFB', '/usr/bin/xvfb-run');		//The path to the Xvfb server
-        if(! defined('WEBSHOT_SCREEN_X') ) 	define ('WEBSHOT_SCREEN_X', '1024');			//1024 works ok
-        if(! defined('WEBSHOT_SCREEN_Y') ) 	define ('WEBSHOT_SCREEN_Y', '768');			//768 works ok
-        if(! defined('WEBSHOT_COLOR_DEPTH') ) 	define ('WEBSHOT_COLOR_DEPTH', '24');			//I haven't tested anything besides 24
-        if(! defined('WEBSHOT_IMAGE_FORMAT') ) 	define ('WEBSHOT_IMAGE_FORMAT', 'png');			//png is about 2.5 times the size of jpg but is a LOT better quality
-        if(! defined('WEBSHOT_TIMEOUT') ) 	define ('WEBSHOT_TIMEOUT', '20');			//Seconds to wait for a webshot
-        if(! defined('WEBSHOT_USER_AGENT') ) 	define ('WEBSHOT_USER_AGENT', "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.2.18) Gecko/20110614 Firefox/3.6.18"); //I hate to do this, but a non-browser robot user agent might not show what humans see. So we pretend to be Firefox
-        if(! defined('WEBSHOT_JAVASCRIPT_ON') ) define ('WEBSHOT_JAVASCRIPT_ON', true);			//Setting to false might give you a slight speedup and block ads. But it could cause other issues.
-        if(! defined('WEBSHOT_JAVA_ON') ) 	define ('WEBSHOT_JAVA_ON', false);			//Have only tested this as fase
-        if(! defined('WEBSHOT_PLUGINS_ON') ) 	define ('WEBSHOT_PLUGINS_ON', true);			//Enable flash and other plugins
-        if(! defined('WEBSHOT_PROXY') ) 	define ('WEBSHOT_PROXY', '');				//In case you're behind a proxy server.
-        if(! defined('WEBSHOT_XVFB_RUNNING') )	define ('WEBSHOT_XVFB_RUNNING', false);			//ADVANCED: Enable this if you've got Xvfb running in the background.
-
-        // If ALLOW_EXTERNAL is true and ALLOW_ALL_EXTERNAL_SITES is false, then external images will only be fetched from these domains and their subdomains.
-        if(! isset($ALLOWED_SITES)) {
-
-            $ALLOWED_SITES = array (
-                'flickr.com',
-                'staticflickr.com',
-                'picasa.com',
-                'img.youtube.com',
-                'upload.wikimedia.org',
-                'photobucket.com',
-                'imgur.com',
-                'imageshack.us',
-                'tinypic.com',
-            );
-        }
-
-        $tim = new timthumb();
+        $tim = new timthumb($options);
         $tim->handleErrors();
         $tim->securityChecks();
         if($tim->tryBrowserCache()){
             exit(0);
         }
         $tim->handleErrors();
-        if(FILE_CACHE_ENABLED && $tim->tryServerCache()){
+        if(static::$options['file_cache_enabled'] && $tim->tryServerCache()){
             exit(0);
         }
         $tim->handleErrors();
@@ -182,11 +131,12 @@ class Timthumb
     }
 
     /**
-     *
+     * @param array $options
      */
-    public function __construct()
+    public function __construct(array $options = null)
     {
-        global $ALLOWED_SITES;
+        static::$options = array_merge(static::$options, $options);
+
         $this->startTime = microtime(true);
         date_default_timezone_set('UTC');
         $this->debug(1, "Starting new request from " . $this->getIP() . " to " . $_SERVER['REQUEST_URI']);
@@ -213,7 +163,7 @@ class Timthumb
         $this->cleanCache();
 
         $this->myHost = preg_replace('/^www\./i', '', $_SERVER['HTTP_HOST']);
-        $this->src = $this->param('src');
+        $this->src = static::$options['src'];
         $this->url = parse_url($this->src);
         $this->src = preg_replace('/https?:\/\/(?:www\.)?' . $this->myHost . '/i', '', $this->src);
 
@@ -221,7 +171,7 @@ class Timthumb
             $this->error("No image specified");
             return false;
         }
-        if(BLOCK_EXTERNAL_LEECHERS && array_key_exists('HTTP_REFERER', $_SERVER) && (! preg_match('/^https?:\/\/(?:www\.)?' . $this->myHost . '(?:$|\/)/i', $_SERVER['HTTP_REFERER']))){
+        if(static::$options['block_external_leechers'] && array_key_exists('HTTP_REFERER', $_SERVER) && (! preg_match('/^https?:\/\/(?:www\.)?' . $this->myHost . '(?:$|\/)/i', $_SERVER['HTTP_REFERER']))){
             // base64 encoded red image that says 'no hotlinkers'
             // nothing to worry about! :)
             $imgData = base64_decode("R0lGODlhUAAMAIAAAP8AAP///yH5BAAHAP8ALAAAAABQAAwAAAJpjI+py+0Po5y0OgAMjjv01YUZ\nOGplhWXfNa6JCLnWkXplrcBmW+spbwvaVr/cDyg7IoFC2KbYVC2NQ5MQ4ZNao9Ynzjl9ScNYpneb\nDULB3RP6JuPuaGfuuV4fumf8PuvqFyhYtjdoeFgAADs=");
@@ -240,17 +190,17 @@ class Timthumb
         } else {
             $this->debug(2, "Is a request for an internal file: " . $this->src);
         }
-        if($this->isURL && (! ALLOW_EXTERNAL)){
+        if($this->isURL && (! static::$options['allow_external'])){
             $this->error("You are not allowed to fetch images from an external website.");
             return false;
         }
         if($this->isURL){
-            if(ALLOW_ALL_EXTERNAL_SITES){
+            if(static::$options['allow_all_external_sites']){
                 $this->debug(2, "Fetching from all external sites is enabled.");
             } else {
                 $this->debug(2, "Fetching only from selected external sites is enabled.");
                 $allowed = false;
-                foreach($ALLOWED_SITES as $site){
+                foreach(static::$options['allowed_sites'] as $site){
                     if ((strtolower(substr($this->url['host'],-strlen($site)-1)) === strtolower(".$site")) || (strtolower($this->url['host'])===strtolower($site))) {
                         $this->debug(3, "URL hostname {$this->url['host']} matches $site so allowing.");
                         $allowed = true;
@@ -302,24 +252,12 @@ class Timthumb
     public function run()
     {
         if($this->isURL){
-            if(! ALLOW_EXTERNAL){
+            if(! static::$options['allow_external']){
                 $this->debug(1, "Got a request for an external image but ALLOW_EXTERNAL is disabled so returning error msg.");
                 $this->error("You are not allowed to fetch images from an external website.");
                 return false;
             }
             $this->debug(3, "Got request for external image. Starting serveExternalImage.");
-            if($this->param('webshot')){
-                if(WEBSHOT_ENABLED){
-                    $this->debug(3, "webshot param is set, so we're going to take a webshot.");
-                    $this->serveWebshot();
-                } else {
-                    $this->error("You added the webshot parameter but webshots are disabled on this server. You need to set WEBSHOT_ENABLED == true to enable webshots.");
-                }
-            } else {
-                $this->debug(3, "webshot is NOT set so we're going to try to fetch a regular image.");
-                $this->serveExternalImage();
-
-            }
         } else {
             $this->debug(3, "Got request for internal image. Starting serveInternalImage()");
             $this->serveInternalImage();
@@ -463,7 +401,7 @@ class Timthumb
     protected function serveErrors()
     {
         header ($_SERVER['SERVER_PROTOCOL'] . ' 400 Bad Request');
-        if ( ! DISPLAY_ERROR_MESSAGES ) {
+        if ( ! static::$options['debug_on'] ) {
             return;
         }
         $html = '<ul>';
@@ -473,7 +411,7 @@ class Timthumb
         $html .= '</ul>';
         echo '<h1>A TimThumb error has occured</h1>The following error(s) occured:<br />' . $html . '<br />';
         echo '<br />Query String : ' . htmlentities( $_SERVER['QUERY_STRING'], ENT_QUOTES );
-        echo '<br />TimThumb version : ' . VERSION . '</pre>';
+        echo '<br />TimThumb version : ' . static::$version . '</pre>';
     }
 
     /**
@@ -582,25 +520,25 @@ class Timthumb
         }
 
         // get standard input properties
-        $new_width =  (int) abs ($this->param('w', 0));
-        $new_height = (int) abs ($this->param('h', 0));
-        $zoom_crop = (int) $this->param('zc', DEFAULT_ZC);
-        $quality = (int) abs ($this->param('q', DEFAULT_Q));
-        $align = $this->cropTop ? 't' : $this->param('a', 'c');
-        $filters = $this->param('f', DEFAULT_F);
-        $sharpen = (bool) $this->param('s', DEFAULT_S);
-        $canvas_color = $this->param('cc', DEFAULT_CC);
-        $canvas_trans = (bool) $this->param('ct', '1');
+        $new_width =  (int) abs(static::$options['width']);
+        $new_height = (int) abs(static::$options['height']);
+        $zoom_crop = (int) static::$options['zoom_crop'];
+        $quality = (int) abs(static::$options['quality']);
+        $align = $this->cropTop ? 't' : static::$options['align'];
+        $filters = static::$options['filters'];
+        $sharpen = (bool) static::$options['sharpen'];
+        $canvas_color = static::$options['canvas_color'];
+        $canvas_trans = (bool) static::$options['canvas_trans'];
 
         // set default width and height if neither are set already
         if ($new_width == 0 && $new_height == 0) {
-            $new_width = (int) DEFAULT_WIDTH;
-            $new_height = (int) DEFAULT_HEIGHT;
+            $new_width = (int) static::$options['width'];
+            $new_height = (int) static::$options['height'];
         }
 
         // ensure size limits can not be abused
-        $new_width = min ($new_width, MAX_WIDTH);
-        $new_height = min ($new_height, MAX_HEIGHT);
+        $new_width = min ($new_width, static::$options['max_width']);
+        $new_height = min ($new_height, static::$options['max_height']);
 
         // set memory limit to be able to have enough space to resize larger images
         $this->setMemoryLimit();
@@ -644,7 +582,7 @@ class Timthumb
         if (strlen($canvas_color) == 3) { //if is 3-char notation, edit string into 6-char notation
             $canvas_color =  str_repeat(substr($canvas_color, 0, 1), 2) . str_repeat(substr($canvas_color, 1, 1), 2) . str_repeat(substr($canvas_color, 2, 1), 2);
         } else if (strlen($canvas_color) != 6) {
-            $canvas_color = DEFAULT_CC; // on error return default canvas color
+            $canvas_color = static::$options['canvas_color']; // on error return default canvas color
         }
 
         $canvas_color_R = hexdec (substr ($canvas_color, 0, 2));
@@ -1016,64 +954,6 @@ class Timthumb
     /**
      * @return bool
      */
-    protected function serveWebshot()
-    {
-        $this->debug(3, "Starting serveWebshot");
-        $instr = "Please follow the instructions at http://code.google.com/p/timthumb/ to set your server up for taking website screenshots.";
-        if(! is_file(WEBSHOT_CUTYCAPT)){
-            return $this->error("CutyCapt is not installed. $instr");
-        }
-        if(! is_file(WEBSHOT_XVFB)){
-            return $this->Error("Xvfb is not installed. $instr");
-        }
-        $cuty = WEBSHOT_CUTYCAPT;
-        $xv = WEBSHOT_XVFB;
-        $screenX = WEBSHOT_SCREEN_X;
-        $screenY = WEBSHOT_SCREEN_Y;
-        $colDepth = WEBSHOT_COLOR_DEPTH;
-        $format = WEBSHOT_IMAGE_FORMAT;
-        $timeout = WEBSHOT_TIMEOUT * 1000;
-        $ua = WEBSHOT_USER_AGENT;
-        $jsOn = WEBSHOT_JAVASCRIPT_ON ? 'on' : 'off';
-        $javaOn = WEBSHOT_JAVA_ON ? 'on' : 'off';
-        $pluginsOn = WEBSHOT_PLUGINS_ON ? 'on' : 'off';
-        $proxy = WEBSHOT_PROXY ? ' --http-proxy=' . WEBSHOT_PROXY : '';
-        $tempfile = tempnam($this->cacheDirectory, 'timthumb_webshot');
-        $url = $this->src;
-        if(! preg_match('/^https?:\/\/[a-zA-Z0-9\.\-]+/i', $url)){
-            return $this->error("Invalid URL supplied.");
-        }
-        $url = preg_replace('/[^A-Za-z0-9\-\.\_:\/\?\&\+\;\=]+/', '', $url); //RFC 3986 plus ()$ chars to prevent exploit below. Plus the following are also removed: @*!~#[]',
-        // 2014 update by Mark Maunder: This exploit: http://cxsecurity.com/issue/WLB-2014060134
-        // uses the $(command) shell execution syntax to execute arbitrary shell commands as the web server user.
-        // So we're now filtering out the characters: '$', '(' and ')' in the above regex to avoid this.
-        // We are also filtering out chars rarely used in URLs but legal accoring to the URL RFC which might be exploitable. These include: @*!~#[]',
-        // We're doing this because we're passing this URL to the shell and need to make very sure it's not going to execute arbitrary commands.
-        if(WEBSHOT_XVFB_RUNNING){
-            putenv('DISPLAY=:100.0');
-            $command = "$cuty $proxy --max-wait=$timeout --user-agent=\"$ua\" --javascript=$jsOn --java=$javaOn --plugins=$pluginsOn --js-can-open-windows=off --url=\"$url\" --out-format=$format --out=$tempfile";
-        } else {
-            $command = "$xv --server-args=\"-screen 0, {$screenX}x{$screenY}x{$colDepth}\" $cuty $proxy --max-wait=$timeout --user-agent=\"$ua\" --javascript=$jsOn --java=$javaOn --plugins=$pluginsOn --js-can-open-windows=off --url=\"$url\" --out-format=$format --out=$tempfile";
-        }
-        $this->debug(3, "Executing command: $command");
-        $out = `$command`;
-        $this->debug(3, "Received output: $out");
-        if(! is_file($tempfile)){
-            $this->set404();
-            return $this->error("The command to create a thumbnail failed.");
-        }
-        $this->cropTop = true;
-        if($this->processImageAndWriteToCache($tempfile)){
-            $this->debug(3, "Image processed succesfully. Serving from cache");
-            return $this->serveCacheFile();
-        } else {
-            return false;
-        }
-    }
-
-    /**
-     * @return bool
-     */
     protected function serveExternalImage()
     {
         if(! preg_match('/^https?:\/\/[a-zA-Z0-9\-\.]+/i', $this->src)){
@@ -1203,20 +1083,6 @@ class Timthumb
     }
 
     /**
-     * @param $property
-     * @param string $default
-     * @return string
-     */
-    protected function param($property, $default = '')
-    {
-        if (isset ($_GET[$property])) {
-            return $_GET[$property];
-        } else {
-            return $default;
-        }
-    }
-
-    /**
      * @param $mimeType
      * @param $src
      * @return resource
@@ -1271,7 +1137,7 @@ class Timthumb
      */
     protected function debug($level, $msg)
     {
-        if(DEBUG_ON && $level <= DEBUG_LEVEL){
+        if(static::$options['debug_on'] && $level <= static::$options['debug_level']){
             $execTime = sprintf('%.6f', microtime(true) - $this->startTime);
             $tick = sprintf('%.6f', 0);
             if($this->lastBenchTime > 0){
@@ -1311,12 +1177,12 @@ class Timthumb
     {
         $inimem = ini_get('memory_limit');
         $inibytes = timthumb::returnBytes($inimem);
-        $ourbytes = timthumb::returnBytes(MEMORY_LIMIT);
+        $ourbytes = timthumb::returnBytes(static::$options['memory_limit']);
         if($inibytes < $ourbytes){
-            ini_set ('memory_limit', MEMORY_LIMIT);
-            $this->debug(3, "Increased memory from $inimem to " . MEMORY_LIMIT);
+            ini_set ('memory_limit', static::$options['memory_limit']);
+            $this->debug(3, "Increased memory from $inimem to " . static::$options['memory_limit']);
         } else {
-            $this->debug(3, "Not adjusting memory size because the current setting is " . $inimem . " and our size of " . MEMORY_LIMIT . " is smaller.");
+            $this->debug(3, "Not adjusting memory size because the current setting is " . $inimem . " and our size of " . static::$options['memory_limit'] . " is smaller.");
         }
     }
 
