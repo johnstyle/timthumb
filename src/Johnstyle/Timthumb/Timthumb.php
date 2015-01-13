@@ -45,6 +45,7 @@ class Timthumb
         'allow_external' => false,
         'allow_all_external_sites' => false,
         'file_cache_enabled' => true,
+        'file_cache_directory' => null,
         'allowed_sites' => array (
             'flickr.com',
             'staticflickr.com',
@@ -70,7 +71,6 @@ class Timthumb
     protected $cachefile = '';
     protected $errors = array();
     protected $toDeletes = array();
-    protected $cacheDirectory = '';
     protected $startTime = 0;
     protected $lastBenchTime = 0;
     protected $cropTop = false;
@@ -91,7 +91,6 @@ class Timthumb
         if(! defined('FILE_CACHE_MAX_FILE_AGE') ) 	define ('FILE_CACHE_MAX_FILE_AGE', 86400);				// How old does a file have to be to be deleted from the cache
         if(! defined('FILE_CACHE_SUFFIX') ) 		define ('FILE_CACHE_SUFFIX', '.timthumb.txt');			// What to put at the end of all files in the cache directory so we can identify them
         if(! defined('FILE_CACHE_PREFIX') ) 		define ('FILE_CACHE_PREFIX', 'timthumb');				// What to put at the beg of all files in the cache directory so we can identify them
-        if(! defined('FILE_CACHE_DIRECTORY') ) 		define ('FILE_CACHE_DIRECTORY', sys_get_temp_dir() . '/timthumb');				// Directory where images are cached. Left blank it will use the system temporary directory (which is better for security)
         if(! defined('MAX_FILE_SIZE') )				define ('MAX_FILE_SIZE', 10485760);						// 10 Megs is 10485760. This is the max internal or external file size that we'll process.
         if(! defined('CURL_TIMEOUT') )				define ('CURL_TIMEOUT', 20);							// Timeout duration for Curl. This only applies if you have Curl installed and aren't using PHP's default URL fetching mechanism.
         if(! defined('WAIT_BETWEEN_FETCH_ERRORS') )	define ('WAIT_BETWEEN_FETCH_ERRORS', 3600);				// Time to wait between errors fetching remote file
@@ -144,20 +143,19 @@ class Timthumb
         //On windows systems I'm assuming fileinode returns an empty string or a number that doesn't change. Check this.
         $this->salt = @filemtime(__FILE__) . '-' . @fileinode(__FILE__);
         $this->debug(3, "Salt is: " . $this->salt);
-        if(FILE_CACHE_DIRECTORY){
-            if(! is_dir(FILE_CACHE_DIRECTORY)){
-                @mkdir(FILE_CACHE_DIRECTORY);
-                if(! is_dir(FILE_CACHE_DIRECTORY)){
+        if(static::$options['file_cache_directory']){
+            if(! is_dir(static::$options['file_cache_directory'])){
+                @mkdir(static::$options['file_cache_directory']);
+                if(! is_dir(static::$options['file_cache_directory'])){
                     $this->error("Could not create the file cache directory.");
                     return false;
                 }
             }
-            $this->cacheDirectory = FILE_CACHE_DIRECTORY;
-            if (!touch($this->cacheDirectory . '/index.html')) {
+            if (!touch(static::$options['file_cache_directory'] . '/index.html')) {
                 $this->error("Could not create the index.html file - to fix this create an empty file named index.html file in the cache directory.");
             }
         } else {
-            $this->cacheDirectory = sys_get_temp_dir();
+            static::$options['file_cache_directory'] = sys_get_temp_dir();
         }
         //Clean the cache before we do anything because we don't want the first visitor after FILE_CACHE_TIME_BETWEEN_CLEANS expires to get a stale image.
         $this->cleanCache();
@@ -216,7 +214,7 @@ class Timthumb
         if($this->isURL){
             $arr = explode('&', $_SERVER ['QUERY_STRING']);
             asort($arr);
-            $this->cachefile = $this->cacheDirectory . '/' . FILE_CACHE_PREFIX . $cachePrefix . md5($this->salt . implode('', $arr) . $this->fileCacheVersion) . FILE_CACHE_SUFFIX;
+            $this->cachefile = static::$options['file_cache_directory'] . '/' . FILE_CACHE_PREFIX . $cachePrefix . md5($this->salt . implode('', $arr) . $this->fileCacheVersion) . FILE_CACHE_SUFFIX;
         } else {
             $this->localImage = $this->getLocalImagePath($this->src);
             if(! $this->localImage){
@@ -228,7 +226,7 @@ class Timthumb
             $this->debug(1, "Local image path is {$this->localImage}");
             $this->localImageMTime = @filemtime($this->localImage);
             //We include the mtime of the local file in case in changes on disk.
-            $this->cachefile = $this->cacheDirectory . '/' . FILE_CACHE_PREFIX . $cachePrefix . md5($this->salt . $this->localImageMTime . $_SERVER ['QUERY_STRING'] . $this->fileCacheVersion) . FILE_CACHE_SUFFIX;
+            $this->cachefile = static::$options['file_cache_directory'] . '/' . FILE_CACHE_PREFIX . $cachePrefix . md5($this->salt . $this->localImageMTime . $_SERVER ['QUERY_STRING'] . $this->fileCacheVersion) . FILE_CACHE_SUFFIX;
         }
         $this->debug(2, "Cache file is: " . $this->cachefile);
 
@@ -451,7 +449,7 @@ class Timthumb
             return;
         }
         $this->debug(3, "cleanCache() called");
-        $lastCleanFile = $this->cacheDirectory . '/timthumb_cacheLastCleanTime.touch';
+        $lastCleanFile = static::$options['file_cache_directory'] . '/timthumb_cacheLastCleanTime.touch';
 
         //If this is a new timthumb installation we need to create the file
         if(! is_file($lastCleanFile)){
@@ -467,7 +465,7 @@ class Timthumb
             if (!touch($lastCleanFile)) {
                 $this->error("Could not create cache clean timestamp file.");
             }
-            $files = glob($this->cacheDirectory . '/*' . FILE_CACHE_SUFFIX);
+            $files = glob(static::$options['file_cache_directory'] . '/*' . FILE_CACHE_SUFFIX);
             if ($files) {
                 $timeAgo = time() - FILE_CACHE_MAX_FILE_AGE;
                 foreach($files as $file){
@@ -742,7 +740,7 @@ class Timthumb
         }
 
         $imgType = "";
-        $tempfile = tempnam($this->cacheDirectory, 'timthumb_tmpimg_');
+        $tempfile = tempnam(static::$options['file_cache_directory'], 'timthumb_tmpimg_');
         if(preg_match('/^image\/(?:jpg|jpeg)$/i', $mimeType)){
             $imgType = 'jpg';
             imagejpeg($canvas, $tempfile, $quality);
@@ -773,7 +771,7 @@ class Timthumb
             }
         } else if($imgType == 'png' && PNGCRUSH_ENABLED && PNGCRUSH_PATH && @is_file(PNGCRUSH_PATH)){
             $exec = PNGCRUSH_PATH;
-            $tempfile2 = tempnam($this->cacheDirectory, 'timthumb_tmpimg_');
+            $tempfile2 = tempnam(static::$options['file_cache_directory'], 'timthumb_tmpimg_');
             $this->debug(3, "pngcrush'ing $tempfile to $tempfile2");
             $out = `$exec $tempfile $tempfile2`;
             $todel = "";
@@ -795,7 +793,7 @@ class Timthumb
         }
 
         $this->debug(3, "Rewriting image with security header.");
-        $tempfile4 = tempnam($this->cacheDirectory, 'timthumb_tmpimg_');
+        $tempfile4 = tempnam(static::$options['file_cache_directory'], 'timthumb_tmpimg_');
         $context = stream_context_create ();
         $fp = fopen($tempfile,'r',0,$context);
         file_put_contents($tempfile4, $this->filePrependSecurityBlock . $imgType . ' ?' . '>'); //6 extra bytes, first 3 being image type
@@ -960,7 +958,7 @@ class Timthumb
             $this->error("Invalid URL supplied.");
             return false;
         }
-        $tempfile = tempnam($this->cacheDirectory, 'timthumb');
+        $tempfile = tempnam(static::$options['file_cache_directory'], 'timthumb');
         $this->debug(3, "Fetching external image into temporary file $tempfile");
         $this->toDelete($tempfile);
         #fetch file here
