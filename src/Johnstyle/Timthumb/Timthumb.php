@@ -489,6 +489,7 @@ class Timthumb
     protected function processImageAndWriteToCache($localImage)
     {
         $sData = getimagesize($localImage);
+
         $origType = $sData[2];
         $mimeType = $sData['mime'];
 
@@ -543,6 +544,8 @@ class Timthumb
 
         // open the existing image
         $image = $this->openImage ($mimeType, $localImage);
+        $this->autoRotateImage($image, $localImage);
+
         if ($image === false) {
             return $this->error('Unable to open image.');
         }
@@ -1310,5 +1313,39 @@ class Timthumb
     protected function is404()
     {
         return $this->is404;
+    }
+
+
+    /**
+     * @param resource $image
+     * @param string   $localImage
+     */
+    protected function autoRotateImage(&$image, $localImage)
+    {
+        $angle = null;
+        $meta = exif_read_data($localImage);
+
+        switch(isset($meta['Orientation']) ? $meta['Orientation'] : null) {
+
+            case \Imagick::ORIENTATION_BOTTOMRIGHT:
+
+                $angle = 180;
+                break;
+
+            case \Imagick::ORIENTATION_RIGHTTOP:
+
+                $angle = -90;
+                break;
+
+            case \Imagick::ORIENTATION_LEFTBOTTOM:
+
+                $angle = 90;
+                break;
+        }
+
+        if(!is_null($angle)) {
+
+            $image = imagerotate($image, $angle, 0);
+        }
     }
 }
