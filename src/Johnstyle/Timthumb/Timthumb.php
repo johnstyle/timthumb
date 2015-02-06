@@ -1327,17 +1327,20 @@ class Timthumb
 
         switch(isset($meta['Orientation']) ? $meta['Orientation'] : null) {
 
-            case \Imagick::ORIENTATION_BOTTOMRIGHT:
+            //case \Imagick::ORIENTATION_BOTTOMRIGHT:
+            case 3:
 
                 $angle = 180;
                 break;
 
-            case \Imagick::ORIENTATION_RIGHTTOP:
+            //case \Imagick::ORIENTATION_RIGHTTOP:
+            case 6:
 
                 $angle = -90;
                 break;
 
-            case \Imagick::ORIENTATION_LEFTBOTTOM:
+            //case \Imagick::ORIENTATION_LEFTBOTTOM:
+            case 8:
 
                 $angle = 90;
                 break;
