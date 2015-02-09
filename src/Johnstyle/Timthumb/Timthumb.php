@@ -566,6 +566,13 @@ class Timthumb
         // scale down and add borders
         if ($zoom_crop == 3) {
 
+            if($new_width > $width
+                || $new_height > $height) {
+
+                $new_width = $width;
+                $new_height = $height;
+            }
+
             $final_height = $height * ($new_width / $width);
 
             if ($final_height > $new_height) {
@@ -573,7 +580,6 @@ class Timthumb
             } else {
                 $new_height = $final_height;
             }
-
         }
 
         // create a new true color image
