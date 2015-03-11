@@ -1328,33 +1328,39 @@ class Timthumb
      */
     protected function autoRotateImage(&$image, $localImage)
     {
-        $angle = null;
-        $meta = exif_read_data($localImage);
+        try {
 
-        switch(isset($meta['Orientation']) ? $meta['Orientation'] : null) {
+            $angle = null;
+            $meta = exif_read_data($localImage);
 
-            //case \Imagick::ORIENTATION_BOTTOMRIGHT:
-            case 3:
+            switch (isset($meta['Orientation']) ? $meta['Orientation'] : null) {
 
-                $angle = 180;
-                break;
+                //case \Imagick::ORIENTATION_BOTTOMRIGHT:
+                case 3:
 
-            //case \Imagick::ORIENTATION_RIGHTTOP:
-            case 6:
+                    $angle = 180;
+                    break;
 
-                $angle = -90;
-                break;
+                //case \Imagick::ORIENTATION_RIGHTTOP:
+                case 6:
 
-            //case \Imagick::ORIENTATION_LEFTBOTTOM:
-            case 8:
+                    $angle = -90;
+                    break;
 
-                $angle = 90;
-                break;
-        }
+                //case \Imagick::ORIENTATION_LEFTBOTTOM:
+                case 8:
 
-        if(!is_null($angle)) {
+                    $angle = 90;
+                    break;
+            }
 
-            $image = imagerotate($image, $angle, 0);
+            if (!is_null($angle)) {
+
+                $image = imagerotate($image, $angle, 0);
+            }
+
+        } catch(\Exception $e) {
+
         }
     }
 }
