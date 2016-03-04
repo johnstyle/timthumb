@@ -1123,9 +1123,9 @@ class Timthumb
      */
     protected function getIP()
     {
-        $rem = @$_SERVER["REMOTE_ADDR"];
-        $ff = @$_SERVER["HTTP_X_FORWARDED_FOR"];
-        $ci = @$_SERVER["HTTP_CLIENT_IP"];
+        $rem = isset($_SERVER["REMOTE_ADDR"]) ? $_SERVER["REMOTE_ADDR"] : null;
+        $ff = isset($_SERVER["HTTP_X_FORWARDED_FOR"]) ? $_SERVER["HTTP_X_FORWARDED_FOR"] : null;
+        $ci = isset($_SERVER["HTTP_CLIENT_IP"]) ? $_SERVER["HTTP_CLIENT_IP"] : null;
         if(preg_match('/^(?:192\.168|172\.16|10\.|127\.)/', $rem)){
             if($ff){ return $ff; }
             if($ci){ return $ci; }
