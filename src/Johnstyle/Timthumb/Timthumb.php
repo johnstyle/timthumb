@@ -36,7 +36,7 @@ class Timthumb
         'canvas_trans' => 1,
         'width' => 100,
         'height' => 100,
-i        'max_width' => 2048,
+        'max_width' => 2048,
         'max_height' => 2048,
         'debug_on' => false,
         'debug_level' => 1,
