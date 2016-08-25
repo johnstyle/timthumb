@@ -26,6 +26,7 @@ class Timthumb
 
     /** @var array $options */
     protected static $options = array(
+        'docRoot' => null,
         'src' => null,
         'quality' => 90,
         'zoom_crop' => 1,
@@ -139,7 +140,11 @@ class Timthumb
         $this->startTime = microtime(true);
         date_default_timezone_set('UTC');
         $this->debug(1, "Starting new request from " . $this->getIP() . " to " . $_SERVER['REQUEST_URI']);
-        $this->calcDocRoot();
+        if (isset($options['docRoot'])) {
+            $this->docRoot = $options['docRoot'];
+        } else {
+            $this->calcDocRoot();
+        }
         //On windows systems I'm assuming fileinode returns an empty string or a number that doesn't change. Check this.
         $this->salt = @filemtime(__FILE__) . '-' . @fileinode(__FILE__);
         $this->debug(3, "Salt is: " . $this->salt);
