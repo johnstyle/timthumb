@@ -45,6 +45,7 @@ class Timthumb
         'block_external_leechers' => false,
         'allow_external' => false,
         'allow_all_external_sites' => false,
+        'file_cache_expires' => 864000,
         'file_cache_enabled' => true,
         'file_cache_directory' => null,
         'allowed_sites' => array (
@@ -95,10 +96,6 @@ class Timthumb
         if(! defined('MAX_FILE_SIZE') )				define ('MAX_FILE_SIZE', 10485760);						// 10 Megs is 10485760. This is the max internal or external file size that we'll process.
         if(! defined('CURL_TIMEOUT') )				define ('CURL_TIMEOUT', 20);							// Timeout duration for Curl. This only applies if you have Curl installed and aren't using PHP's default URL fetching mechanism.
         if(! defined('WAIT_BETWEEN_FETCH_ERRORS') )	define ('WAIT_BETWEEN_FETCH_ERRORS', 3600);				// Time to wait between errors fetching remote file
-
-        //Browser caching
-        if(! defined('BROWSER_CACHE_MAX_AGE') ) 	define ('BROWSER_CACHE_MAX_AGE', 864000);				// Time to cache in the browser
-        if(! defined('BROWSER_CACHE_DISABLE') ) 	define ('BROWSER_CACHE_DISABLE', false);				// Use for testing if you want to disable all browser caching
 
         //Image size and defaults
         if(! defined('NOT_FOUND_IMAGE') )			define ('NOT_FOUND_IMAGE', '');							// Image to serve if any 404 occurs
@@ -299,7 +296,7 @@ class Timthumb
      */
     protected function tryBrowserCache()
     {
-        if(BROWSER_CACHE_DISABLE){ $this->debug(3, "Browser caching is disabled"); return false; }
+        if(true !== static::$options['file_cache_enabled']){ $this->debug(3, "Browser caching is disabled"); return false; }
         if(!empty($_SERVER['HTTP_IF_MODIFIED_SINCE']) ){
             $this->debug(3, "Got a conditional get");
             $mtime = false;
@@ -1067,21 +1064,21 @@ class Timthumb
         if(strtolower($mimeType) == 'image/jpg'){
             $mimeType = 'image/jpeg';
         }
-        $gmdate_expires = gmdate ('D, d M Y H:i:s', strtotime ('now +10 days')) . ' GMT';
+        $gmdate_expires = gmdate ('D, d M Y H:i:s', time() + static::$options['file_cache_expires']) . ' GMT';
         $gmdate_modified = gmdate ('D, d M Y H:i:s') . ' GMT';
         // send content headers then display image
         header ('Content-Type: ' . $mimeType);
         header ('Accept-Ranges: none'); //Changed this because we don't accept range requests
         header ('Last-Modified: ' . $gmdate_modified);
         header ('Content-Length: ' . $dataSize);
-        if(BROWSER_CACHE_DISABLE){
+        if(true !== static::$options['file_cache_enabled']){
             $this->debug(3, "Browser cache is disabled so setting non-caching headers.");
             header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-            header("Pragma: no-cache");
+            header('Pragma: no-cache');
             header('Expires: ' . gmdate ('D, d M Y H:i:s', time()));
         } else {
             $this->debug(3, "Browser caching is enabled");
-            header('Cache-Control: max-age=' . BROWSER_CACHE_MAX_AGE . ', must-revalidate');
+            header('Cache-Control: max-age=' . static::$options['file_cache_expires'] . ', no-transform');
             header('Expires: ' . $gmdate_expires);
         }
         return true;
